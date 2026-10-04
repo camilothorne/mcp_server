@@ -6,6 +6,18 @@ from settings import DBPEDIA_SPARQL_ENDPOINT, DBLP_SPARQL_ENDPOINT
 
 mcp = MCPServer("Knowledge Graph Agent")
 
+"""
+
+This is a simple example of a knowledge graph MCP server that can query DBpedia and DBLP.
+and return the results in SPARQL Results JSON format.
+It uses the mcp library to create a server that can be queried via HTTP.
+The server exposes two tools:
+
+- query_dbpedia: queries DBpedia for a given SPARQL query and returns the results
+- query_dblp_topic: queries DBLP for a given topic and returns the top 10 publications and their citation counts
+
+"""
+
 @mcp.tool()
 def query_dbpedia(query: str) -> str:
     """Run a SPARQL query against DBpedia and return SPARQL Results JSON."""
