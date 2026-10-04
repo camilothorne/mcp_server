@@ -14,9 +14,9 @@ env:
   SERVICE_NAME: knowledge-graph-mcp
   GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
   GCP_REGION: us-central1
-  GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+  GCP_PROJECT: steel-wall-436909-g7
   GCP_DOCKER_REG: us-central1-docker.pkg.dev
-  GCP_DOCKER_REPO: us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/docker-hub
+  GCP_DOCKER_REPO: us-central1-docker.pkg.dev/${{ env.GCP_PROJECT }}/docker-hub
   # Runtime service account used by the Cloud Run service.
   GCP_RUNTIME_SA: cicd-sa@steel-wall-436909-g7.iam.gserviceaccount.com
   SERVICE_PORT: 8080
