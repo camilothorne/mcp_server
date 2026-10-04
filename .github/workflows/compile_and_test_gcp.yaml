@@ -1,0 +1,102 @@
+# Build and push the MCP server image, then optionally deploy it to Cloud Run.
+name: Build and push MCP server
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types:
+      - closed
+    # Only meaningful when the PR was actually merged; the job-level condition below enforces this
+
+env:
+  SERVICE_NAME: knowledge-graph-mcp
+  GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+  GCP_REGION: us-central1
+  GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+  GCP_DOCKER_REG: us-central1-docker.pkg.dev
+  GCP_DOCKER_REPO: us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/docker-hub
+  # Runtime service account used by the Cloud Run service.
+  GCP_RUNTIME_SA: cicd-sa@steel-wall-436909-g7.iam.gserviceaccount.com
+  SERVICE_PORT: 8080
+  SERVICE_MEMORY: 2Gi
+  SERVICE_CPU: 2
+  SERVICE_CONCURRENCY: 16
+
+jobs:
+  docker-push-and-deploy:
+    name: Build and push container to Docker & GCP, deploy to Cloud Run
+    runs-on: ubuntu-latest
+    environment: docker-env
+
+    permissions:
+      contents: read
+      id-token: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 1
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.11'
+
+    - name: Install Python dependencies
+      run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+
+    - name: Check Python syntax
+      run: python -m compileall -q server.py settings.py
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image
+      run: |
+        docker build -t ${{ env.GCP_DOCKER_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }} .
+
+    - name: Set up Google Cloud SDK key (SA)
+      uses: google-github-actions/auth@v3
+      with:
+        credentials_json: ${{ env.GCP_SA_KEY }}
+
+    - name: Set up Google Cloud SDK
+      uses: google-github-actions/setup-gcloud@v3
+      with:
+         project_id: ${{ env.GCP_PROJECT }}
+         version: 522.0.0
+
+    - name: Configure Docker auth for GCP and push latest image to GCP repo
+      run: |   
+        echo "* Checking GCP status..."
+        gcloud auth list --filter="status: active" --format="value(account)"
+        echo "* Setting Docker registry to ${{ env.GCP_DOCKER_REG }}..."
+        gcloud auth configure-docker ${{ env.GCP_DOCKER_REG }}
+        echo "* Tagging image..."
+        docker image tag ${{ env.GCP_DOCKER_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }} ${{ env.GCP_DOCKER_REPO }}/${{ env.SERVICE_NAME }}:latest
+        docker image list
+        echo "* Pushing image ${{ env.SERVICE_NAME }}:latest to repo ${{ env.GCP_DOCKER_REPO }}..."
+        docker image push ${{ env.GCP_DOCKER_REPO }}/${{ env.SERVICE_NAME }}:latest
+
+    # Deploy only on [deploy] commits or a closed, merged PR.
+    # Scans every commit in the push, since a merge commit tip would otherwise mask [deploy]
+    - name: Deploy to Cloud Run via GCP repo
+      if: contains(github.event.head_commit.message, '[deploy]') || contains(join(github.event.commits.*.message, ' '), '[deploy]') || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+      run: |
+        echo "* Deploying ${{ env.SERVICE_NAME }} as cloud run..."
+        gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image=${{ env.GCP_DOCKER_REPO }}/${{ env.SERVICE_NAME }}:latest \
+            --platform=managed \
+            --region=${{ env.GCP_REGION }} \
+            --project=${{ env.GCP_PROJECT }} \
+            --port=${{ env.SERVICE_PORT }} \
+            --memory=${{ env.SERVICE_MEMORY }} \
+            --cpu=${{ env.SERVICE_CPU }} \
+            --concurrency=${{ env.SERVICE_CONCURRENCY }} \
+            --execution-environment=gen2 \
+            --no-allow-unauthenticated \
+            --max-instances=1 \
+            --service-account=${{ env.GCP_RUNTIME_SA }}
