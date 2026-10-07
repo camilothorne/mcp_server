@@ -177,13 +177,9 @@ def query_dblp_topic(topic: str) -> str:
 def query_dbpedia(query: str) -> str:
     """Run a SPARQL query against DBpedia and return SPARQL Results JSON."""
     request = Request(
-        DBPEDIA_SPARQL_ENDPOINT,
-        data=urlencode({"query": query}).encode("utf-8"),
-        headers={
-            "Accept": "application/sparql-results+json",
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        },
-        method="POST",
+        f"{DBPEDIA_SPARQL_ENDPOINT}?{urlencode({'query': query})}",
+        headers={"Accept": "application/sparql-results+json"},
+        method="GET",
     )
     with urlopen(request, timeout=30) as response:
         return response.read().decode("utf-8")
