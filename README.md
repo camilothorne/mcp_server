@@ -4,11 +4,11 @@ An MCP server that exposes SPARQL-backed knowledge graph tools for DBpedia and D
 
 ## Tools
 
-- `query_dbpedia(query)`: Runs the supplied SPARQL query against DBpedia and returns SPARQL Results JSON.
-- `query_dblp_topic(topic)`: Searches DBLP publication titles for the supplied topic and returns citation-count results.
+- `query_dbpedia(query)`: Sends the supplied SPARQL query to DBpedia as a URL-encoded HTTP GET and returns SPARQL Results JSON.
+- `query_dblp_topic(topic)`: Searches DBLP publication titles for the supplied topic and returns up to 10 results with citation counts.
 - `query_arxiv(topic)`: Searches arXiv for papers matching the topic that were submitted during the current UTC calendar week, returning Atom XML.
 
-Both tools call public SPARQL endpoints. Their endpoint URLs are defined in `settings.py`.
+DBpedia and DBLP use public SPARQL endpoints configured in `settings.py`. The arXiv tool uses the public arXiv API.
 
 ## Run Locally
 
